@@ -1,378 +1,446 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Epic Universe — Ride Heat Map</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #060b18; }
-    button { font-family: 'DM Mono', 'Courier New', monospace; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Universal Orlando — Wait Time Heatmaps</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080a12;
+    --surface: #0d1022;
+    --surface2: #111428;
+    --border: #1c2040;
+    --accent: #6d4aff;
+    --accent2: #c4b5fd;
+    --text: #eaecf8;
+    --muted: #8f96c0;
+    --sidebar: 272px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Outfit', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── HEADER ── */
+  header {
+    height: 52px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 14px;
+    flex-shrink: 0;
+  }
+
+  .logo-mark { width: 26px; height: 26px; flex-shrink: 0; }
+
+  .header-title {
+    font-family: 'Cinzel', serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    background: linear-gradient(100deg, #c4b5fd 0%, #818cf8 45%, #93c5fd 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ── PARK TABS ── */
+  .park-tabs {
+    height: 44px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .park-tab {
+    display: flex; align-items: center; gap: 7px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    font-size: 12px; font-weight: 500;
+    color: var(--muted);
+    background: none;
+    font-family: 'Outfit', sans-serif;
+    transition: all 0.18s;
+    white-space: nowrap;
+  }
+  .park-tab:hover { color: var(--text); border-color: var(--border); background: rgba(255,255,255,0.04); }
+  .park-tab[data-park="epic"].active  { background: linear-gradient(135deg,#4f2fff,#7c3aed); color:#fff; box-shadow: 0 2px 12px rgba(109,74,255,0.4); }
+  .park-tab[data-park="ioa"].active   { background: linear-gradient(135deg,#0369a1,#0ea5e9); color:#fff; box-shadow: 0 2px 12px rgba(14,165,233,0.35); }
+  .park-tab[data-park="usf"].active   { background: linear-gradient(135deg,#b91c1c,#ef4444); color:#fff; box-shadow: 0 2px 12px rgba(239,68,68,0.35); }
+
+  .tab-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .tab-dot-epic { background: #818cf8; }
+  .tab-dot-ioa  { background: #38bdf8; }
+  .tab-dot-usf  { background: #f87171; }
+
+  /* ── LAYOUT ── */
+  .body { display: flex; flex: 1; overflow: hidden; }
+
+  /* ── SIDEBAR ── */
+  aside {
+    width: var(--sidebar);
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    overflow: hidden; flex-shrink: 0;
+  }
+
+  .sidebar-top {
+    padding: 10px 14px 8px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .sidebar-top p {
+    font-size: 9.5px; text-transform: uppercase;
+    letter-spacing: 0.12em; color: var(--muted); font-weight: 500;
+  }
+
+  .ride-list {
+    overflow-y: auto; flex: 1; padding: 6px 0;
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+  }
+
+  .land-label {
+    font-size: 9.5px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.11em; padding: 10px 14px 3px; margin-top: 2px;
+  }
+
+  .ride-btn {
+    width: 100%; display: flex; align-items: center; gap: 10px;
+    padding: 8px 14px; background: none; border: none;
+    border-left: 3px solid transparent; cursor: pointer; text-align: left;
+    font-family: 'Outfit', sans-serif;
+    transition: background 0.12s, border-color 0.12s;
+  }
+  .ride-btn:hover  { background: rgba(109,74,255,0.07); }
+  .ride-btn.active { background: rgba(109,74,255,0.14); border-left-color: var(--accent); }
+
+  .rank-num {
+    width: 22px; height: 22px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; flex-shrink: 0;
+  }
+  .r1  { background: linear-gradient(135deg,#f59e0b,#fde68a); color:#1a0a00; }
+  .r2  { background: linear-gradient(135deg,#9ca3af,#f3f4f6); color:#111; }
+  .r3  { background: linear-gradient(135deg,#b45309,#fcd34d); color:#1a0500; }
+  .r45 { background: rgba(109,74,255,0.25); color:#c4b5fd; }
+  .r67 { background: rgba(59,130,246,0.25); color:#93c5fd; }
+  .rlo { background: var(--border); color: var(--muted); }
+
+  .ride-btn-info { flex: 1; min-width: 0; }
+  .ride-btn-name {
+    font-size: 12.5px; font-weight: 500; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .ride-btn-sub { font-size: 10px; color: var(--muted); margin-top: 1px; }
+
+  /* ── MAIN ── */
+  main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  .main-header {
+    padding: 11px 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    display: flex; align-items: center; gap: 12px;
+  }
+
+  .ride-header-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent); box-shadow: 0 0 8px var(--accent);
+    flex-shrink: 0;
+  }
+
+  #ride-title {
+    font-family: 'Cinzel', serif;
+    font-size: 14px; font-weight: 700;
+    color: #f0eeff; letter-spacing: 0.04em;
+  }
+
+  #ride-land { font-size: 11px; color: var(--muted); }
+
+  .open-link {
+    margin-left: auto; font-size: 11.5px; color: var(--accent2);
+    text-decoration: none; opacity: 0.85; transition: opacity 0.15s; white-space: nowrap;
+  }
+  .open-link:hover { opacity: 1; }
+
+  /* ── IFRAME ── */
+  .frame-wrap {
+    flex: 1; position: relative; background: #fff;
+  }
+
+  #ride-frame {
+    width: 100%; height: 100%; border: none; display: block;
+  }
+
+  /* Loading overlay */
+  .frame-overlay {
+    position: absolute; inset: 0;
+    background: var(--bg);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 14px;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .frame-overlay.hidden { opacity: 0; }
+
+  .spinner {
+    width: 34px; height: 34px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.75s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .overlay-text { font-size: 12px; color: var(--muted); letter-spacing: 0.04em; }
+
+  /* Empty state */
+  .empty-state {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 12px;
+    background: var(--bg);
+  }
+  .empty-icon { font-size: 40px; }
+  .empty-title {
+    font-family: 'Cinzel', serif; font-size: 14px;
+    color: var(--text); letter-spacing: 0.06em;
+  }
+  .empty-sub { font-size: 12px; color: var(--muted); }
+</style>
 </head>
 <body>
-  <div id="root"></div>
-  <script type="text/babel">
-    const { useState, useMemo, useEffect } = React;
 
-    const RIDES = [
-      { name: "Mine-Cart Madness",             land: "Super Nintendo World", avg: 148.6, max: 210, color: "#ff6b35", qtId: 14686 },
-      { name: "Battle at the Ministry",         land: "Ministry of Magic",    avg: 123.1, max: 165, color: "#7c3aed", qtId: 14687 },
-      { name: "Mario Kart: Bowser's Challenge", land: "Super Nintendo World", avg: 102.4, max: 200, color: "#dc2626", qtId: 14683 },
-      { name: "Curse of the Werewolf",          land: "Dark Universe",        avg: 69.9,  max: 100, color: "#16a34a", qtId: 14692 },
-      { name: "Hiccup's Wing Gliders",          land: "Isle of Berk",         avg: 61.8,  max: 120, color: "#0891b2", qtId: 14695 },
-      { name: "Dragon Racer's Rally",           land: "Isle of Berk",         avg: 46.3,  max: 75,  color: "#0369a1", qtId: 14693 },
-      { name: "Yoshi's Adventure",              land: "Super Nintendo World", avg: 39.0,  max: 75,  color: "#65a30d", qtId: 14689 },
-    ];
+<header>
+  <svg class="logo-mark" viewBox="0 0 26 26" fill="none">
+    <circle cx="13" cy="13" r="12" stroke="#818cf8" stroke-width="1.4"/>
+    <circle cx="13" cy="13" r="7" stroke="#c4b5fd" stroke-width="0.9" stroke-dasharray="2.2 1.8"/>
+    <path d="M13 5L14 10.8L20 13L14 15.2L13 21L12 15.2L6 13L12 10.8Z" fill="#fcd34d"/>
+  </svg>
+  <span class="header-title">UNIVERSAL ORLANDO · WAIT TIME HEATMAPS</span>
+</header>
 
-    const HOURS = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
-    const HOUR_LABELS = ["9a","10a","11a","12p","1p","2p","3p","4p","5p","6p","7p","8p","9p","10p"];
+<div class="park-tabs">
+  <button class="park-tab" data-park="epic" onclick="switchPark('epic')">
+    <span class="tab-dot tab-dot-epic"></span> Epic Universe
+  </button>
+  <button class="park-tab" data-park="ioa" onclick="switchPark('ioa')">
+    <span class="tab-dot tab-dot-ioa"></span> Islands of Adventure
+  </button>
+  <button class="park-tab" data-park="usf" onclick="switchPark('usf')">
+    <span class="tab-dot tab-dot-usf"></span> Universal Studios Florida
+  </button>
+</div>
 
-    const HOUR_FACTORS = {
-      9: 0.08, 10: 0.35, 11: 0.55, 12: 0.72,
-      13: 0.85, 14: 0.92, 15: 0.97, 16: 1.0,
-      17: 0.88, 18: 0.93, 19: 1.02, 20: 0.85,
-      21: 0.72, 22: 0.58
-    };
+<div class="body">
+  <aside>
+    <div class="sidebar-top"><p>Rides ranked by avg. wait</p></div>
+    <div class="ride-list" id="ride-list"></div>
+  </aside>
 
-    function generateDates() {
-      const dates = [];
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      for (let i = 9; i >= 0; i--) {
-        const d = new Date(today);
-        d.setDate(today.getDate() - i);
-        dates.push(d);
-      }
-      return dates;
-    }
+  <main>
+    <div class="main-header">
+      <div class="ride-header-dot"></div>
+      <span id="ride-title">Select a ride</span>
+      <span id="ride-land"></span>
+      <a id="open-link" class="open-link" href="#" target="_blank">↗ Open in Thrill Data</a>
+    </div>
+    <div class="frame-wrap">
+      <div class="frame-overlay hidden" id="overlay">
+        <div class="spinner"></div>
+        <span class="overlay-text">Loading heatmap…</span>
+      </div>
+      <div class="empty-state" id="empty-state">
+        <div class="empty-icon">🎢</div>
+        <div class="empty-title">Select a Ride</div>
+        <div class="empty-sub">Choose any ride from the sidebar to view its 30-day wait heatmap</div>
+      </div>
+      <iframe id="ride-frame" src="about:blank" title="Ride wait time heatmap"></iframe>
+    </div>
+  </main>
+</div>
 
-    function getDayFactor(date) {
-      const day = date.getDay();
-      const month = date.getMonth();
-      const dateNum = date.getDate();
-      const sb = month === 2 && dateNum >= 14 && dateNum <= 22;
-      const weekend = day === 0 || day === 6;
-      let f = 0.7;
-      if (weekend) f = 0.9;
-      if (sb) f = weekend ? 1.0 : 0.95;
-      return f;
-    }
+<script>
+const PARKS = {
+  epic: {
+    label: 'Epic Universe',
+    slug: 'epic-universe',
+    lands: {
+      "Super Nintendo World": "#e8380d",
+      "Ministry of Magic":    "#8b5cf6",
+      "Dark Universe":        "#6b7280",
+      "Isle of Berk":         "#0d9488",
+      "Celestial Park":       "#6d4aff",
+    },
+    rides: [
+      { rank:1,  name:"Mine-Cart Madness",                     land:"Super Nintendo World", type:"Family Coaster",        height:'40"', slug:"minecartmadness" },
+      { rank:2,  name:"Mario Kart: Bowser's Challenge",        land:"Super Nintendo World", type:"Interactive Dark Ride", height:'40"', slug:"mariokartbowserschallenge" },
+      { rank:3,  name:"Harry Potter & Battle at the Ministry", land:"Ministry of Magic",    type:"Motion Simulation",     height:'40"', slug:"harrypotterandthebattleattheministry" },
+      { rank:4,  name:"Monsters Unchained",                    land:"Dark Universe",        type:"KUKA Arm Dark Ride",    height:'48"', slug:"monstersunchainedthefrankensteinexperiment" },
+      { rank:5,  name:"Stardust Racers",                       land:"Celestial Park",       type:"Dueling Coaster",       height:'48"', slug:"stardustracers" },
+      { rank:6,  name:"Hiccup's Wing Gliders",                 land:"Isle of Berk",         type:"Multi-Launch Coaster",  height:'40"', slug:"hiccupswinggliders" },
+      { rank:7,  name:"Curse of the Werewolf",                 land:"Dark Universe",        type:"Spinning Coaster",      height:'40"', slug:"curseofthewerewolf" },
+      { rank:8,  name:"Dragon Racer's Rally",                  land:"Isle of Berk",         type:"Sky Fly",               height:'48"', slug:"dragonracersrally" },
+      { rank:9,  name:"Fyre Drill",                            land:"Isle of Berk",         type:"Splash Battle",         height:'42"', slug:"fyredrill" },
+      { rank:10, name:"Yoshi's Adventure",                     land:"Super Nintendo World", type:"Omnimover Dark Ride",   height:"—",   slug:"yoshisadventure" },
+      { rank:11, name:"Constellation Carousel",                land:"Celestial Park",       type:"Family Carousel",       height:"—",   slug:"constellationcarousel" },
+    ]
+  },
 
-    function seededRandom(seed) {
-      const x = Math.sin(seed) * 10000;
-      return x - Math.floor(x);
-    }
+  ioa: {
+    label: 'Islands of Adventure',
+    slug: 'islands-of-adventure',
+    lands: {
+      "The Wizarding World":       "#8b5cf6",
+      "Jurassic World":            "#16a34a",
+      "Marvel Super Hero Island":  "#dc2626",
+      "Skull Island":              "#78350f",
+      "Toon Lagoon":               "#0ea5e9",
+    },
+    rides: [
+      { rank:1,  name:"Hagrid's Magical Creatures Motorbike Adventure", land:"The Wizarding World",      type:"Story Coaster",      height:'48"', slug:"hagridsmagicalcreaturesmotorbikeadventure" },
+      { rank:2,  name:"Jurassic World VelociCoaster",                   land:"Jurassic World",           type:"Launch Coaster",     height:'51"', slug:"jurassicworldvelocicoaster" },
+      { rank:3,  name:"Harry Potter and the Forbidden Journey",         land:"The Wizarding World",      type:"KUKA Arm Dark Ride", height:'48"', slug:"harrypotterandtheforbiddenjourney" },
+      { rank:4,  name:"The Incredible Hulk Coaster",                   land:"Marvel Super Hero Island", type:"Launch Coaster",     height:'54"', slug:"theincrediblehulkcoaster" },
+      { rank:5,  name:"Flight of the Hippogriff",                      land:"The Wizarding World",      type:"Family Coaster",     height:'36"', slug:"flightofthehippogriff" },
+      { rank:6,  name:"The Amazing Adventures of Spider-Man",          land:"Marvel Super Hero Island", type:"3D Dark Ride",       height:'40"', slug:"theamazingadventuresofspiderman" },
+      { rank:7,  name:"Skull Island: Reign of Kong",                   land:"Skull Island",             type:"Dark Ride",          height:'36"', slug:"skullislandreignofkong" },
+      { rank:8,  name:"Doctor Doom's Fearfall",                        land:"Marvel Super Hero Island", type:"Drop Tower",         height:'52"', slug:"doctordoomsfearfall" },
+      { rank:9,  name:"Popeye & Bluto's Bilge-Rat Barges",            land:"Toon Lagoon",              type:"River Raft Ride",    height:'42"', slug:"popeyeandblutosbilgeratbarges" },
+      { rank:10, name:"Pteranodon Flyers",                             land:"Jurassic World",           type:"Suspended Ride",     height:"—",   slug:"pteranodonflyers" },
+    ]
+  },
 
-    function modeledWait(ride, date, hour) {
-      const dayF = getDayFactor(date);
-      const hourF = HOUR_FACTORS[hour] || 0;
-      const seed = date.getDate() * 1000 + date.getMonth() * 100 + hour + RIDES.indexOf(ride) * 37;
-      const noise = 0.85 + seededRandom(seed) * 0.3;
-      return Math.max(0, Math.min(ride.max, Math.round(ride.avg * dayF * hourF * noise)));
-    }
+  usf: {
+    label: 'Universal Studios Florida',
+    slug: 'universal-studios',
+    lands: {
+      "The Wizarding World": "#8b5cf6",
+      "New York":            "#64748b",
+      "Minion Land":         "#f59e0b",
+      "World Expo":          "#0ea5e9",
+      "Springfield":         "#e8380d",
+      "San Francisco":       "#dc2626",
+      "Hollywood":           "#db2777",
+    },
+    rides: [
+      { rank:1, name:"Harry Potter and the Escape from Gringotts",  land:"The Wizarding World", type:"Multi-Dimension Ride",  height:'42"', slug:"harrypotterandtheescapefromgringotts" },
+      { rank:2, name:"Revenge of the Mummy",                        land:"New York",            type:"Indoor Coaster",        height:'48"', slug:"revengeofthemummy" },
+      { rank:3, name:"Transformers: The Ride-3D",                   land:"New York",            type:"3D Dark Ride",          height:'40"', slug:"transformerstherided" },
+      { rank:4, name:"Despicable Me Minion Mayhem",                 land:"Minion Land",         type:"Motion Simulator",      height:'40"', slug:"despicablememinionmayhem" },
+      { rank:5, name:"Men in Black: Alien Attack",                  land:"World Expo",          type:"Interactive Dark Ride", height:'42"', slug:"meninblackalienattack" },
+      { rank:6, name:"The Simpsons Ride",                           land:"Springfield",         type:"Motion Simulator",      height:'40"', slug:"thesimpsonsride" },
+      { rank:7, name:"Fast & Furious: Supercharged",               land:"San Francisco",       type:"Motion Simulator",      height:'40"', slug:"fastfurioussupercharged" },
+      { rank:8, name:"Race Through New York Starring Jimmy Fallon", land:"New York",            type:"Flying Theater",        height:'40"', slug:"racethroughnewyorkstarringjimmyfallon" },
+      { rank:9, name:"E.T. Adventure",                              land:"Hollywood",           type:"Dark Ride",             height:'34"', slug:"etadventure" },
+    ]
+  }
+};
 
-    function getColor(wait, maxWait) {
-      if (!wait) return "#0f172a";
-      const r = Math.min(wait / maxWait, 1);
-      if (r < 0.2) return `hsl(210,80%,${20 + r*5*20}%)`;
-      if (r < 0.4) return `hsl(${210-(r-0.2)*5*110},80%,40%)`;
-      if (r < 0.6) return `hsl(${100-(r-0.4)*5*50},85%,45%)`;
-      if (r < 0.8) return `hsl(${50-(r-0.6)*5*30},90%,48%)`;
-      return `hsl(${20-(r-0.8)*5*15},95%,50%)`;
-    }
+function rankCls(r){ return r===1?'r1':r===2?'r2':r===3?'r3':r<=5?'r45':r<=7?'r67':'rlo'; }
 
-    function sameDay(a, b) {
-      return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
-    }
+let currentPark = null;
 
-    const DATES = generateDates();
-    const TODAY = new Date();
-    const NOW_HOUR = TODAY.getHours();
+function buildSidebar(parkKey) {
+  const park = PARKS[parkKey];
+  const list = document.getElementById('ride-list');
+  list.innerHTML = '';
 
-    function App() {
-      const [selectedRide, setSelectedRide] = useState(0);
-      const [hoveredCell, setHoveredCell] = useState(null);
-      const [liveWaits, setLiveWaits] = useState({});
-      const [fetchStatus, setFetchStatus] = useState("loading");
+  const landOrder = [...new Set(park.rides.map(r => r.land))];
+  const byLand = {};
+  park.rides.forEach(r => (byLand[r.land] = byLand[r.land] || []).push(r));
 
-      useEffect(() => {
-        const API = "https://queue-times.com/parks/334/queue_times.json";
+  landOrder.forEach(land => {
+    const lbl = document.createElement('div');
+    lbl.className = 'land-label';
+    lbl.style.color = park.lands[land] || '#aaa';
+    lbl.textContent = land;
+    list.appendChild(lbl);
 
-        function parseData(data) {
-          const map = {};
-          (data.lands || []).forEach(land =>
-            (land.rides || []).forEach(ride => {
-              if (ride.is_open && ride.wait_time != null) map[ride.id] = ride.wait_time;
-            })
-          );
-          return map;
-        }
+    byLand[land].forEach(ride => {
+      const btn = document.createElement('button');
+      btn.className = 'ride-btn';
+      btn.id = 'btn-' + ride.slug;
+      btn.innerHTML = `
+        <div class="rank-num ${rankCls(ride.rank)}">${ride.rank}</div>
+        <div class="ride-btn-info">
+          <div class="ride-btn-name">${ride.name}</div>
+          <div class="ride-btn-sub">${ride.type} · ${ride.height}</div>
+        </div>`;
+      btn.addEventListener('click', () => selectRide(ride, parkKey));
+      list.appendChild(btn);
+    });
+  });
+}
 
-        const tryAllOrigins = () =>
-          fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(API)}`)
-            .then(r => { if (!r.ok) throw new Error(); return r.json(); })
-            .then(w => parseData(JSON.parse(w.contents)));
+function selectRide(ride, parkKey) {
+  const park = PARKS[parkKey];
+  document.querySelectorAll('.ride-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn-' + ride.slug)?.classList.add('active');
 
-        const tryCorsproxy = () =>
-          fetch(`https://corsproxy.io/?url=${encodeURIComponent(API)}`)
-            .then(r => { if (!r.ok) throw new Error(); return r.json(); })
-            .then(data => parseData(data));
+  document.getElementById('ride-title').textContent = ride.name;
+  document.getElementById('ride-land').textContent = ride.land + ' · ' + ride.type;
 
-        const tryThingproxy = () =>
-          fetch(`https://thingproxy.freeboard.io/fetch/${API}`)
-            .then(r => { if (!r.ok) throw new Error(); return r.json(); })
-            .then(data => parseData(data));
+  const url = `https://www.thrill-data.com/waits/attraction/${park.slug}/${ride.slug}/#heatmapwait`;
+  document.getElementById('open-link').href = url;
 
-        tryAllOrigins()
-          .catch(() => tryCorsproxy())
-          .catch(() => tryThingproxy())
-          .then(map => { setLiveWaits(map); setFetchStatus("ok"); })
-          .catch(() => setFetchStatus("error"));
-      }, []);
+  // Hide empty state, show loader
+  document.getElementById('empty-state').style.display = 'none';
+  const overlay = document.getElementById('overlay');
+  overlay.classList.remove('hidden');
 
-      const ride = RIDES[selectedRide];
+  const frame = document.getElementById('ride-frame');
+  frame.src = '';
 
-      const heatmapData = useMemo(() => DATES.map(date => {
-        const isToday = sameDay(date, TODAY);
-        return {
-          date, isToday,
-          hours: HOURS.map(hour => {
-            if (isToday && hour > NOW_HOUR) return { hour, wait: null, future: true };
-            if (isToday && hour === NOW_HOUR) {
-              const live = liveWaits[ride.qtId];
-              return { hour, wait: live != null ? live : modeledWait(ride, date, hour), isLive: live != null };
-            }
-            return { hour, wait: modeledWait(ride, date, hour) };
-          })
-        };
-      }), [selectedRide, liveWaits]);
+  // Small delay so browser clears prior page before setting new src
+  setTimeout(() => {
+    frame.src = url;
+  }, 50);
 
-      const allWaits = heatmapData.flatMap(d => d.hours.map(h => h.wait)).filter(w => w != null && w > 0);
-      const avgWait = allWaits.length ? Math.round(allWaits.reduce((a,b)=>a+b,0)/allWaits.length) : 0;
-      const peakWait = allWaits.length ? Math.max(...allWaits) : 0;
-      const liveNow = liveWaits[ride.qtId];
+  frame.onload = () => overlay.classList.add('hidden');
+}
 
-      const fmtDate = d => {
-        const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-        return { short: `${d.getMonth()+1}/${d.getDate()}`, day: days[d.getDay()] };
-      };
-      const isWknd = d => d.getDay()===0||d.getDay()===6;
-      const isSB = d => d.getMonth()===2 && d.getDate()>=14 && d.getDate()<=22;
+function switchPark(parkKey) {
+  if (currentPark === parkKey) return;
+  currentPark = parkKey;
 
-      const statusColor = { loading:"#64748b", ok:"#4ade80", error:"#f87171" }[fetchStatus];
-      const statusBg   = { loading:"#0f172a", ok:"#052e16", error:"#1c0a0a" }[fetchStatus];
-      const statusBdr  = { loading:"#1e293b", ok:"#166534", error:"#7f1d1d" }[fetchStatus];
-      const statusText = { loading:"⟳ fetching live data…", ok:"● live via queue-times.com", error:"○ offline — using modeled data" }[fetchStatus];
+  document.querySelectorAll('.park-tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.park === parkKey)
+  );
 
-      return (
-        <div style={{ minHeight:"100vh", background:"#060b18", fontFamily:"'DM Mono','Courier New',monospace", color:"#f8fafc", padding:"24px",
-          backgroundImage:"radial-gradient(ellipse at 20% 20%,rgba(124,58,237,0.08) 0%,transparent 50%),radial-gradient(ellipse at 80% 80%,rgba(255,107,53,0.06) 0%,transparent 50%)" }}>
+  buildSidebar(parkKey);
 
-          {/* Header */}
-          <div style={{ marginBottom:"28px" }}>
-            <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", marginBottom:"4px" }}>
-              <div style={{ display:"flex", alignItems:"baseline", gap:"12px" }}>
-                <span style={{ fontSize:"11px", letterSpacing:"0.2em", color:"#ff6b35", textTransform:"uppercase" }}>Universal Epic Universe</span>
-                <span style={{ fontSize:"11px", color:"#64748b" }}>—</span>
-                <span style={{ fontSize:"11px", letterSpacing:"0.1em", color:"#94a3b8" }}>10-DAY WAIT TIME ANALYSIS</span>
-              </div>
-              <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
-                <span style={{ fontSize:"10px", letterSpacing:"0.1em", color:"#94a3b8" }}>YOUR VISIT</span>
-                <span style={{ fontSize:"12px", color:"#fbbf24", fontWeight:"600" }}>Apr 8–10 (Wed–Fri)</span>
-              </div>
-            </div>
-            <div style={{ display:"flex", alignItems:"center", gap:"12px" }}>
-              <h1 style={{ fontSize:"26px", fontWeight:"700", margin:0, letterSpacing:"-0.02em", color:"#f8fafc" }}>Ride Heat Map</h1>
-              <div style={{ fontSize:"10px", padding:"3px 8px", borderRadius:"4px", background:statusBg, color:statusColor, border:`1px solid ${statusBdr}` }}>
-                {statusText}
-              </div>
-            </div>
-          </div>
+  // Reset main area
+  document.getElementById('ride-title').textContent = 'Select a ride';
+  document.getElementById('ride-land').textContent = '';
+  document.getElementById('open-link').href = '#';
+  document.getElementById('overlay').classList.add('hidden');
+  document.getElementById('ride-frame').src = 'about:blank';
+  document.getElementById('empty-state').style.display = '';
+}
 
-          {/* Ride Selector */}
-          <div style={{ display:"flex", flexWrap:"wrap", gap:"8px", marginBottom:"24px" }}>
-            {RIDES.map((r,i) => (
-              <button key={i} onClick={()=>setSelectedRide(i)} style={{
-                padding:"7px 14px", borderRadius:"6px",
-                border: selectedRide===i ? `1.5px solid ${r.color}` : "1.5px solid #1e293b",
-                background: selectedRide===i ? `${r.color}18` : "transparent",
-                color: selectedRide===i ? r.color : "#94a3b8",
-                fontSize:"11px", letterSpacing:"0.05em", cursor:"pointer", transition:"all 0.15s",
-                fontWeight: selectedRide===i ? "600" : "400"
-              }}>{r.name}</button>
-            ))}
-          </div>
-
-          {/* Stats Bar */}
-          <div style={{ display:"flex", flexWrap:"wrap", gap:"24px", marginBottom:"20px", padding:"14px 18px", background:"#0f172a", borderRadius:"8px", border:"1px solid #1e293b" }}>
-            {[
-              { label:"LAND",      val: ride.land,   color: ride.color },
-              { label:"10-DAY AVG",val:`${avgWait} min`, color:"#f8fafc" },
-              { label:"PEAK WAIT", val:`${peakWait} min`, color:"#f87171" },
-              { label:"LIVE NOW",  val: fetchStatus==="loading" ? "…" : liveNow!=null ? `${liveNow} min` : "closed/—",
-                                   color: liveNow!=null ? "#4ade80" : "#334155" },
-            ].map((item,i,arr) => (
-              <React.Fragment key={i}>
-                <div>
-                  <div style={{ fontSize:"10px", color:"#94a3b8", letterSpacing:"0.1em", marginBottom:"3px" }}>{item.label}</div>
-                  <div style={{ fontSize:"13px", color:item.color }}>{item.val}</div>
-                </div>
-                {i < arr.length-1 && <div style={{ width:"1px", background:"#1e293b" }} />}
-              </React.Fragment>
-            ))}
-            {hoveredCell && <>
-              <div style={{ width:"1px", background:"#1e293b" }} />
-              <div>
-                <div style={{ fontSize:"10px", color:"#94a3b8", letterSpacing:"0.1em", marginBottom:"3px" }}>SELECTED</div>
-                <div style={{ fontSize:"13px", color:"#f8fafc" }}>
-                  {fmtDate(hoveredCell.date).short} @ {HOUR_LABELS[HOURS.indexOf(hoveredCell.hour)]} →{" "}
-                  <span style={{ color: hoveredCell.wait>90 ? "#f87171" : hoveredCell.wait>45 ? "#fbbf24" : "#4ade80" }}>
-                    {hoveredCell.wait} min{hoveredCell.isLive ? " 🔴" : ""}
-                  </span>
-                </div>
-              </div>
-            </>}
-          </div>
-
-          {/* Heatmap */}
-          <div>
-            <div style={{ display:"flex", marginLeft:"34px", marginBottom:"4px" }}>
-              {heatmapData.map(({date,isToday},i) => {
-                const {short,day} = fmtDate(date);
-                const wknd = isWknd(date); const sb = isSB(date);
-                return (
-                  <div key={i} style={{ flex:1, textAlign:"center", minWidth:0 }}>
-                    <div style={{ fontSize:"8px", letterSpacing:"0.05em", color: isToday?"#4ade80":sb?"#fb923c":wknd?"#cbd5e1":"#64748b" }}>{isToday?"TODAY":day}</div>
-                    <div style={{ fontSize:"8px", color: isToday?"#4ade80":sb?"#fb923c":wknd?"#94a3b8":"#475569" }}>{short}</div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div style={{ display:"flex" }}>
-              <div style={{ display:"flex", flexDirection:"column", gap:"2px", marginRight:"4px", flexShrink:0 }}>
-                {HOUR_LABELS.map((lbl,i) => (
-                  <div key={i} style={{ height:"20px", display:"flex", alignItems:"center", justifyContent:"flex-end", paddingRight:"6px" }}>
-                    <span style={{ fontSize:"9px", color:"#64748b", letterSpacing:"0.05em" }}>{lbl}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div style={{ display:"flex", flex:1, gap:"2px" }}>
-                {heatmapData.map(({date,isToday,hours},di) => (
-                  <div key={di} style={{ flex:1, display:"flex", flexDirection:"column", gap:"2px" }}>
-                    {hours.map(({hour,wait,future,isLive},hi) => {
-                      const isHovered = hoveredCell && hoveredCell.date===date && hoveredCell.hour===hour;
-                      const isCurrHour = isToday && hour===NOW_HOUR;
-                      return (
-                        <div key={hi}
-                          onMouseEnter={() => !future && setHoveredCell({date,hour,wait,isLive})}
-                          onMouseLeave={() => setHoveredCell(null)}
-                          style={{
-                            height:"20px", borderRadius:"2px",
-                            background: future ? "#0a111e" : getColor(wait, ride.max),
-                            cursor: future ? "default" : "crosshair",
-                            opacity: future ? 0.2 : 1,
-                            border: isHovered ? "1px solid rgba(255,255,255,0.55)" :
-                                    (isCurrHour && isLive) ? "1px solid #4ade80" :
-                                    future ? "1px solid #0f1f36" : "1px solid transparent",
-                            transition:"opacity 0.1s",
-                          }}
-                        />
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ marginLeft:"34px", marginTop:"6px", display:"flex" }}>
-              {heatmapData.map(({date},i) => (
-                <div key={i} style={{ flex:1 }}>
-                  {isSB(date) && <div style={{ height:"2px", background:"#fb923c", borderRadius:"1px" }} />}
-                </div>
-              ))}
-            </div>
-            <div style={{ display:"flex", justifyContent:"space-between", marginTop:"4px", marginLeft:"34px" }}>
-              <span style={{ fontSize:"9px", color:"#4ade80" }}>TODAY highlighted · 🔴= live data point</span>
-              <span style={{ fontSize:"9px", color:"#fb923c", borderBottom:"1px solid #fb923c" }}>spring break</span>
-            </div>
-          </div>
-
-          {/* Legend */}
-          <div style={{ marginTop:"20px", display:"flex", alignItems:"center", gap:"12px", flexWrap:"wrap" }}>
-            <span style={{ fontSize:"10px", color:"#94a3b8" }}>0 min</span>
-            <div style={{ width:"160px", height:"8px", borderRadius:"4px", background:"linear-gradient(to right,hsl(210,80%,20%),hsl(170,80%,40%),hsl(100,85%,45%),hsl(50,90%,48%),hsl(15,95%,50%))" }} />
-            <span style={{ fontSize:"10px", color:"#94a3b8" }}>{ride.max} min</span>
-            <div style={{ marginLeft:"16px", display:"flex", gap:"16px", flexWrap:"wrap" }}>
-              <span style={{ fontSize:"10px", color:"#fb923c" }}>▬ Spring break</span>
-              <span style={{ fontSize:"10px", color:"#cbd5e1" }}>Sat/Sun highlighted</span>
-              <span style={{ fontSize:"10px", color:"#1e3a5f" }}>░ = no data yet</span>
-            </div>
-          </div>
-
-          {/* All rides comparison */}
-          <div style={{ marginTop:"32px", borderTop:"1px solid #0f172a", paddingTop:"20px" }}>
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"12px" }}>
-              <div style={{ fontSize:"10px", letterSpacing:"0.15em", color:"#64748b" }}>ALL RIDES — HOUR COMPARISON</div>
-              <div style={{ display:"flex", gap:"16px" }}>
-                <div style={{ display:"flex", alignItems:"center", gap:"6px" }}>
-                  <div style={{ width:"10px", height:"4px", borderRadius:"2px", background:"#475569" }} />
-                  <span style={{ fontSize:"9px", color:"#64748b" }}>Peak (4pm)</span>
-                </div>
-                <div style={{ display:"flex", alignItems:"center", gap:"6px" }}>
-                  <div style={{ width:"10px", height:"4px", borderRadius:"2px", background:"#fbbf24" }} />
-                  <span style={{ fontSize:"9px", color: hoveredCell?"#fbbf24":"#475569" }}>
-                    {hoveredCell ? `${HOUR_LABELS[HOURS.indexOf(hoveredCell.hour)]} selected` : "Hover a cell"}
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div style={{ display:"flex", flexDirection:"column", gap:"10px" }}>
-              {RIDES.map((r,i) => {
-                const peakEst = Math.round(r.avg * HOUR_FACTORS[16] * 0.95);
-                const peakPct = peakEst / RIDES[0].avg * 0.95;
-                const hEst = hoveredCell && hoveredCell.wait != null
-                  ? Math.round(hoveredCell.wait * (r.avg / ride.avg)) : null;
-                const hPct = hEst ? Math.min(hEst / RIDES[0].avg, 1) : 0;
-                return (
-                  <div key={i} onClick={()=>setSelectedRide(i)} style={{ display:"flex", alignItems:"center", gap:"12px", cursor:"pointer", opacity:selectedRide===i?1:0.6, transition:"opacity 0.15s" }}>
-                    <div style={{ width:"170px", fontSize:"11px", color:r.color, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", flexShrink:0 }}>{r.name}</div>
-                    <div style={{ flex:1, display:"flex", flexDirection:"column", gap:"3px" }}>
-                      <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
-                        <div style={{ flex:1, height:"5px", background:"#0f172a", borderRadius:"3px", overflow:"hidden" }}>
-                          <div style={{ width:`${peakPct*100}%`, height:"100%", background:r.color, opacity:0.5, borderRadius:"3px", transition:"width 0.4s" }} />
-                        </div>
-                        <div style={{ width:"52px", textAlign:"right", fontSize:"10px", color:"#64748b" }}>~{peakEst}m</div>
-                      </div>
-                      <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
-                        <div style={{ flex:1, height:"5px", background:"#0f172a", borderRadius:"3px", overflow:"hidden" }}>
-                          <div style={{ width:hoveredCell?`${hPct*100}%`:"0%", height:"100%", background:"#fbbf24", borderRadius:"3px", transition:"width 0.3s" }} />
-                        </div>
-                        <div style={{ width:"52px", textAlign:"right", fontSize:"10px", color:hoveredCell?"#fbbf24":"#334155" }}>
-                          {hEst!=null ? `~${hEst}m` : "—"}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            <div style={{ marginTop:"8px", fontSize:"9px", color:"#475569" }}>* Hover any heatmap cell to compare that hour across all rides. Click a ride to view its heatmap.</div>
-          </div>
-
-          <div style={{ marginTop:"24px", fontSize:"9px", color:"#475569", borderTop:"1px solid #0f172a", paddingTop:"12px" }}>
-            Live data: queue-times.com/parks/334 · Historical: modeled from Theme Park Shark & Thrill Data · Epic Universe, Universal Orlando
-          </div>
-        </div>
-      );
-    }
-
-    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
-  </script>
+// Init
+switchPark('epic');
+</script>
 </body>
 </html>
