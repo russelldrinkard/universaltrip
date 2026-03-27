@@ -280,7 +280,7 @@ const PARKS = [
       { rank:3,  name:"Harry Potter & Battle at the Ministry", land:"Ministry of Magic",    type:"Motion Simulation",     slug:"harrypotterandthebattleattheministry" },
       { rank:4,  name:"Monsters Unchained",                    land:"Dark Universe",        type:"KUKA Arm Dark Ride",    slug:"monstersunchainedthefrankensteinexperiment" },
       { rank:5,  name:"Stardust Racers",                       land:"Celestial Park",       type:"Dueling Coaster",       slug:"stardustracers" },
-      { rank:6,  name:"Hiccup's Wing Gliders",                 land:"Isle of Berk",         type:"Multi-Launch Coaster",  slug:"hiccupswinggliders" },
+      { rank:6,  name:"Hiccup Wing Glider",                    land:"Isle of Berk",         type:"Multi-Launch Coaster",  slug:"hiccupswinggliders" },
       { rank:7,  name:"Curse of the Werewolf",                 land:"Dark Universe",        type:"Spinning Coaster",      slug:"curseofthewerewolf" },
       { rank:8,  name:"Dragon Racer's Rally",                  land:"Isle of Berk",         type:"Sky Fly",               slug:"dragonracersrally" },
       { rank:9,  name:"Fyre Drill",                            land:"Isle of Berk",         type:"Splash Battle",         slug:"fyredrill" },
@@ -357,7 +357,7 @@ function norm(s) {
 }
 
 // ── LIVE DATA ─────────────────────────────────────────────────
-const QT_IDS = { epic: 100, ioa: 64, usf: 65 };
+const QT_IDS = { epic: 334, ioa: 64, usf: 65 };
 const liveMap = {};
 let refreshTimer = null;
 
@@ -402,8 +402,8 @@ async function fetchPark(parkKey) {
   data.lands.forEach(land => {
     land.rides.forEach(ride => {
       const n = ride.name;
-      // Detect single-rider entries by common suffixes
-      const srMatch = n.match(/^(.+?)\s*[-–—]\s*(single\s*rider|sr)\s*$/i);
+      // Detect single-rider entries — with or without a dash separator
+      const srMatch = n.match(/^(.+?)\s*(?:[-–—]\s*)?(single\s*rider|sr)\s*$/i);
       if (srMatch) {
         const baseKey = norm(srMatch[1]);
         if (!liveMap[baseKey]) liveMap[baseKey] = {};
