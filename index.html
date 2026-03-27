@@ -250,7 +250,7 @@
     <path d="M13 5L14 10.8L20 13L14 15.2L13 21L12 15.2L6 13L12 10.8Z" fill="#fcd34d"/>
   </svg>
   <span class="header-title">UNIVERSAL ORLANDO · THRILL DATA LAUNCHER</span>
-  <span class="header-sub">Opens 30-day heatmaps on Thrill Data</span>
+  <span class="header-sub">Opens 30-day heatmaps on Thrill Data &nbsp;·&nbsp; Built <span id="build-ts"></span></span>
 </header>
 
 <div class="content" id="content"></div>
@@ -583,6 +583,7 @@ function build() {
 }
 
 // ── INIT ──────────────────────────────────────────────────────
+document.getElementById('build-ts').textContent = 'Mar 27 2026 — v4';
 build();
 fetchAllLive();
 </script>
