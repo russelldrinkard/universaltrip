@@ -267,6 +267,7 @@ const PARKS = [
     dot: '#818cf8',
     btnBg: 'linear-gradient(135deg,#4f2fff,#7c3aed)',
     slug: 'epic-universe',
+    qtUrl: 'https://queue-times.com/parks/334/queue_times',
     lands: {
       "Super Nintendo World": "#e8380d",
       "Ministry of Magic":    "#8b5cf6",
@@ -294,6 +295,7 @@ const PARKS = [
     dot: '#38bdf8',
     btnBg: 'linear-gradient(135deg,#0369a1,#0ea5e9)',
     slug: 'islands-of-adventure',
+    qtUrl: 'https://queue-times.com/parks/64/queue_times',
     lands: {
       "The Wizarding World":       "#8b5cf6",
       "Jurassic World":            "#16a34a",
@@ -320,6 +322,7 @@ const PARKS = [
     dot: '#f87171',
     btnBg: 'linear-gradient(135deg,#b91c1c,#ef4444)',
     slug: 'universal-studios',
+    qtUrl: 'https://queue-times.com/parks/65/queue_times',
     lands: {
       "The Wizarding World": "#8b5cf6",
       "New York":            "#64748b",
@@ -521,7 +524,10 @@ function build() {
     header.innerHTML = `
       <div class="park-dot" style="background:${park.dot};box-shadow:0 0 8px ${park.dot}66"></div>
       <span class="park-name" style="color:${park.dot}">${park.name}</span>
-      <span class="park-count">${park.rides.length} rides</span>`;
+      <span class="park-count">${park.rides.length} rides</span>
+      <a href="${park.qtUrl}" target="_blank" rel="noopener"
+         style="font-size:11px;color:var(--muted);text-decoration:none;margin-left:10px;transition:color 0.15s;"
+         onmouseover="this.style.color='var(--accent2)'" onmouseout="this.style.color='var(--muted)'">↗ Live park times</a>`;
     const btn = document.createElement('button');
     btn.className = 'open-all-btn';
     btn.style.background = park.btnBg;
