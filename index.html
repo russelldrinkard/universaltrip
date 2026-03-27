@@ -195,6 +195,50 @@
     padding: 8px 14px;
   }
   .popup-notice.visible { display: block; }
+
+  /* ── LIVE INDICATORS ── */
+  .live-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 5px;
+    min-height: 14px;
+  }
+
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%; flex-shrink: 0;
+  }
+  .status-dot.open   { background: #4ade80; box-shadow: 0 0 5px #4ade8099; }
+  .status-dot.closed { background: #f87171; box-shadow: 0 0 5px #f8717199; }
+  .status-dot.loading { background: var(--border); animation: pulse-skel 1.2s infinite; }
+  @keyframes pulse-skel { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .wait-pill {
+    font-size: 10.5px; font-weight: 600;
+    padding: 1px 7px;
+    border-radius: 8px;
+    white-space: nowrap;
+  }
+  .wait-pill.closed-label {
+    color: var(--muted);
+    background: rgba(255,255,255,0.05);
+  }
+
+  .live-refresh-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .refresh-btn {
+    background: none; border: 1px solid var(--border); border-radius: 6px;
+    color: var(--muted); font-size: 11px; padding: 3px 10px; cursor: pointer;
+    font-family: 'Outfit', sans-serif; transition: color 0.15s, border-color 0.15s;
+  }
+  .refresh-btn:hover { color: var(--text); border-color: #4ade8088; }
 </style>
 </head>
 <body>
@@ -210,6 +254,10 @@
 </header>
 
 <div class="content" id="content"></div>
+<div class="live-refresh-row" style="max-width:860px;margin:10px auto 0;padding:0 24px">
+  <span id="live-timestamp" style="color:var(--muted)">Loading live data…</span>
+  <button class="refresh-btn" onclick="fetchAllLive()">↻ Refresh</button>
+</div>
 
 <script>
 const PARKS = [
@@ -295,6 +343,7 @@ const PARKS = [
   }
 ];
 
+// ── HELPERS ──────────────────────────────────────────────────
 function rideUrl(parkSlug, rideSlug) {
   return `https://www.thrill-data.com/waits/attraction/${parkSlug}/${rideSlug}/#heatmapwait`;
 }
@@ -303,15 +352,145 @@ function rankCls(r) {
   return r===1?'r1':r===2?'r2':r===3?'r3':r<=5?'r45':r<=7?'r67':'rlo';
 }
 
+function norm(s) {
+  return s.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+// ── LIVE DATA ─────────────────────────────────────────────────
+const QT_IDS = { epic: 100, ioa: 64, usf: 65 };
+const liveMap = {};
+let refreshTimer = null;
+
+// Try multiple proxies in order
+async function fetchJson(url) {
+  const proxies = [
+    u => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
+    u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+  ];
+  for (const makeUrl of proxies) {
+    try {
+      const res = await fetch(makeUrl(url), { signal: AbortSignal.timeout(8000) });
+      if (!res.ok) continue;
+      const envelope = await res.json();
+      // allorigins wraps in { contents: "..." }, corsproxy returns raw
+      const raw = envelope.contents !== undefined ? envelope.contents : JSON.stringify(envelope);
+      return JSON.parse(raw);
+    } catch(e) {
+      continue;
+    }
+  }
+  throw new Error('All proxies failed for ' + url);
+}
+
+async function fetchPark(parkKey) {
+  const id   = QT_IDS[parkKey];
+  const data = await fetchJson(`https://queue-times.com/parks/${id}/queue_times.json`);
+  data.lands.forEach(land => {
+    land.rides.forEach(ride => {
+      const n = ride.name;
+      // Detect single-rider entries by common suffixes
+      const srMatch = n.match(/^(.+?)\s*[-–—]\s*(single\s*rider|sr)\s*$/i);
+      if (srMatch) {
+        const baseKey = norm(srMatch[1]);
+        if (!liveMap[baseKey]) liveMap[baseKey] = {};
+        liveMap[baseKey].sr_open = ride.is_open;
+        liveMap[baseKey].sr_wait = ride.wait_time;
+      } else {
+        const key = norm(n);
+        if (!liveMap[key]) liveMap[key] = {};
+        liveMap[key].is_open = ride.is_open;
+        liveMap[key].wait    = ride.wait_time;
+      }
+    });
+  });
+}
+
+async function fetchAllLive() {
+  // Reset to loading state
+  document.querySelectorAll('.status-dot').forEach(d => d.className = 'status-dot loading');
+  document.querySelectorAll('.wait-pill').forEach(p => {
+    p.textContent = '…';
+    p.style.color = 'var(--muted)';
+    p.style.background = '';
+    p.style.border = '';
+  });
+  const tsEl = document.getElementById('live-timestamp');
+  if (tsEl) tsEl.textContent = 'Fetching…';
+
+  try {
+    await Promise.all(Object.keys(QT_IDS).map(fetchPark));
+    applyLiveData();
+    if (tsEl) tsEl.textContent = 'Updated ' + new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  } catch(e) {
+    document.querySelectorAll('.status-dot').forEach(d => d.className = 'status-dot closed');
+    document.querySelectorAll('.wait-pill').forEach(p => {
+      p.textContent = 'err';
+      p.style.color = '#f87171';
+    });
+    if (tsEl) tsEl.textContent = 'Failed — check console';
+    console.error('Queue-Times fetch error:', e);
+  }
+
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(fetchAllLive, 5 * 60 * 1000);
+}
+
+function applyLiveData() {
+  document.querySelectorAll('[data-ride-norm]').forEach(card => {
+    const live   = liveMap[card.dataset.rideNorm];
+    const dot    = card.querySelector('.status-dot');
+    const pill   = card.querySelector('.wait-pill');
+    const srPill = card.querySelector('.sr-pill');
+
+    if (!live) {
+      if (dot)    dot.className = 'status-dot closed';
+      if (pill) { pill.textContent = '—'; pill.style.color = 'var(--muted)'; }
+      if (srPill) srPill.style.display = 'none';
+      return;
+    }
+
+    if (dot) dot.className = 'status-dot ' + (live.is_open ? 'open' : 'closed');
+
+    if (pill) {
+      if (!live.is_open) {
+        pill.textContent = 'Closed';
+        pill.style.color = 'var(--muted)';
+        pill.style.background = 'rgba(255,255,255,0.05)';
+        pill.style.border = '1px solid rgba(255,255,255,0.08)';
+      } else {
+        const w   = live.wait;
+        const clr = w < 20 ? '#4ade80' : w < 40 ? '#a3e635' : w < 60 ? '#fbbf24' : w < 80 ? '#f97316' : '#f87171';
+        pill.textContent = w + ' min';
+        pill.style.color = clr;
+        pill.style.background = clr + '18';
+        pill.style.border = '1px solid ' + clr + '44';
+      }
+    }
+
+    if (srPill) {
+      if (live.is_open && live.sr_open && live.sr_wait != null) {
+        const w   = live.sr_wait;
+        const clr = w < 20 ? '#4ade80' : w < 40 ? '#a3e635' : w < 60 ? '#fbbf24' : w < 80 ? '#f97316' : '#f87171';
+        srPill.style.display = '';
+        srPill.textContent = 'SR ' + w + 'm';
+        srPill.style.color = clr;
+        srPill.style.background = clr + '18';
+        srPill.style.border = '1px solid ' + clr + '44';
+      } else {
+        srPill.style.display = 'none';
+      }
+    }
+  });
+}
+
+// ── BUILD UI ──────────────────────────────────────────────────
 function openAll(park, noticeId) {
   let blocked = false;
-  park.rides.forEach((ride, i) => {
+  park.rides.forEach(ride => {
     const w = window.open(rideUrl(park.slug, ride.slug), '_blank');
     if (!w) blocked = true;
   });
-  if (blocked) {
-    document.getElementById(noticeId).classList.add('visible');
-  }
+  if (blocked) document.getElementById(noticeId).classList.add('visible');
 }
 
 function build() {
@@ -319,8 +498,7 @@ function build() {
 
   PARKS.forEach(park => {
     const noticeId = 'notice-' + park.key;
-
-    const section = document.createElement('div');
+    const section  = document.createElement('div');
     section.className = 'park-section';
 
     // Park header
@@ -329,9 +507,7 @@ function build() {
     header.innerHTML = `
       <div class="park-dot" style="background:${park.dot};box-shadow:0 0 8px ${park.dot}66"></div>
       <span class="park-name" style="color:${park.dot}">${park.name}</span>
-      <span class="park-count">${park.rides.length} rides</span>
-    `;
-
+      <span class="park-count">${park.rides.length} rides</span>`;
     const btn = document.createElement('button');
     btn.className = 'open-all-btn';
     btn.style.background = park.btnBg;
@@ -341,14 +517,14 @@ function build() {
     header.appendChild(btn);
     section.appendChild(header);
 
-    // Popup blocked notice
+    // Popup notice
     const notice = document.createElement('div');
     notice.className = 'popup-notice';
     notice.id = noticeId;
     notice.textContent = '⚠ Pop-ups blocked — allow pop-ups for this page in Chrome, then try again.';
     section.appendChild(notice);
 
-    // Ride grid grouped by land
+    // Ride grid
     const grid = document.createElement('div');
     grid.className = 'ride-grid';
 
@@ -357,26 +533,30 @@ function build() {
     park.rides.forEach(r => (byLand[r.land] = byLand[r.land] || []).push(r));
 
     landOrder.forEach(land => {
-      // Land divider
-      const div = document.createElement('div');
-      div.className = 'land-divider';
-      div.innerHTML = `
+      const divider = document.createElement('div');
+      divider.className = 'land-divider';
+      divider.innerHTML = `
         <span class="land-divider-label" style="color:${park.lands[land]}">${land}</span>
         <div class="land-divider-line"></div>`;
-      grid.appendChild(div);
+      grid.appendChild(divider);
 
       byLand[land].forEach(ride => {
-        const url = rideUrl(park.slug, ride.slug);
         const card = document.createElement('a');
         card.className = 'ride-card';
-        card.href = url;
+        card.href = rideUrl(park.slug, ride.slug);
         card.target = '_blank';
         card.rel = 'noopener';
+        card.dataset.rideNorm = norm(ride.name);
         card.innerHTML = `
           <div class="rank-badge ${rankCls(ride.rank)}">${ride.rank}</div>
           <div class="ride-card-info">
             <div class="ride-card-name">${ride.name}</div>
             <div class="ride-card-sub">${ride.type}</div>
+            <div class="live-status">
+              <div class="status-dot loading"></div>
+              <span class="wait-pill" style="color:var(--muted)">…</span>
+              <span class="sr-pill" style="display:none;font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:8px;white-space:nowrap"></span>
+            </div>
           </div>
           <span class="ride-arrow">↗</span>`;
         grid.appendChild(card);
@@ -388,7 +568,9 @@ function build() {
   });
 }
 
+// ── INIT ──────────────────────────────────────────────────────
 build();
+fetchAllLive();
 </script>
 </body>
 </html>
