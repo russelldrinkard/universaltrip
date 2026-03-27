@@ -361,25 +361,39 @@ const QT_IDS = { epic: 100, ioa: 64, usf: 65 };
 const liveMap = {};
 let refreshTimer = null;
 
-// Try multiple proxies in order
-async function fetchJson(url) {
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
+  ]);
+}
+
+async function tryFetch(url) {
+  const res = await withTimeout(fetch(url), 7000);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res;
+}
+
+async function fetchJson(qtUrl) {
+  const enc = encodeURIComponent(qtUrl);
   const proxies = [
-    u => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
-    u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+    // Direct — works if queue-times sends CORS *
+    async () => { const r = await tryFetch(qtUrl); return r.json(); },
+    // allorigins — wraps in { contents: "..." }
+    async () => {
+      const r = await tryFetch(`https://api.allorigins.win/get?url=${enc}`);
+      const j = await r.json();
+      return JSON.parse(j.contents);
+    },
+    // corsproxy.io — returns raw JSON
+    async () => { const r = await tryFetch(`https://corsproxy.io/?${enc}`); return r.json(); },
+    // codetabs
+    async () => { const r = await tryFetch(`https://api.codetabs.com/v1/proxy?quest=${enc}`); return r.json(); },
   ];
-  for (const makeUrl of proxies) {
-    try {
-      const res = await fetch(makeUrl(url), { signal: AbortSignal.timeout(8000) });
-      if (!res.ok) continue;
-      const envelope = await res.json();
-      // allorigins wraps in { contents: "..." }, corsproxy returns raw
-      const raw = envelope.contents !== undefined ? envelope.contents : JSON.stringify(envelope);
-      return JSON.parse(raw);
-    } catch(e) {
-      continue;
-    }
+  for (const attempt of proxies) {
+    try { return await attempt(); } catch(e) { /* try next */ }
   }
-  throw new Error('All proxies failed for ' + url);
+  throw new Error('All proxies failed for ' + qtUrl);
 }
 
 async function fetchPark(parkKey) {
